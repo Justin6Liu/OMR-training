@@ -41,11 +41,15 @@ mim train mmdet configs/cascade_omr.py \
     train_dataloader.batch_size=2 train_dataloader.num_workers=1 train_dataloader.persistent_workers=False \
     val_dataloader.batch_size=1 val_dataloader.num_workers=1 val_dataloader.persistent_workers=False \
     train_cfg.max_epochs=10 \
-    load_from=None
+    load_from=None \
+    default_hooks.checkpoint.interval=1 \
+    default_hooks.checkpoint.save_last=True
 
 echo "Training done, collecting artifacts..."
-cp -n "$RUN_DIR"/latest.pth "$REPO/artifacts/" || true
-cp -n "$RUN_DIR"/*.log.json "$REPO/artifacts/" || true
+for f in "$RUN_DIR"/latest.pth "$RUN_DIR"/epoch_*.pth; do
+  [ -f "$f" ] && cp -n "$f" "$REPO/artifacts/"
+done
+cp -n "$RUN_DIR"/*.log.json "$REPO/artifacts/" 2>/dev/null || true
 cp -nr "$RUN_DIR"/vis_data "$REPO/artifacts/" 2>/dev/null || true
 
 echo "Cleaning scratch run dir..."
