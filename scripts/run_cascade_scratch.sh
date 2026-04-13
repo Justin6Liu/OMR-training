@@ -40,7 +40,7 @@ mim train mmdet configs/cascade_omr.py \
     test_dataloader.dataset.filter_cfg=None \
     train_dataloader.batch_size=2 train_dataloader.num_workers=1 train_dataloader.persistent_workers=False \
     val_dataloader.batch_size=1 val_dataloader.num_workers=1 val_dataloader.persistent_workers=False \
-    train_cfg.max_epochs=10 \
+    train_cfg.max_epochs=${EPOCHS:-12} \
     load_from=None \
     default_hooks.checkpoint.interval=1 \
     default_hooks.checkpoint.save_last=True
@@ -56,3 +56,4 @@ echo "Cleaning scratch run dir..."
 rm -rf "$RUN_DIR"
 
 echo "Artifacts stored in $REPO/artifacts"
+exit 0
