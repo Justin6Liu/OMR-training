@@ -1,13 +1,14 @@
-# Cascade R-CNN R50 FPN for MUSCIMA++ detection (115 classes)
-# Minimal training config; adjust epochs/batch for full runs.
+# Cascade R-CNN R50 FPN for MUSCIMA++ (115 classes)
+# Adjust paths below for your environment.
 
-base = [
+_base_ = [
     "mmdet::cascade_rcnn/cascade-rcnn_r50_fpn_1x_coco.py",
 ]
 
-data_root = "/Users/justinliu/Documents/GitHub/OMR-training/datasets/muscima_coco/"
+data_root = "/home/users/jl1430/jl1430/OMR-training/datasets/muscima_coco/"
+img_root = "/home/users/jl1430/muscima-pp/v2.0/data/images/"
 
-classes = tuple([f"class_{i}" for i in range(115)])  # placeholder names; ids map in COCO
+classes = tuple([f"class_{i}" for i in range(115)])
 
 train_dataloader = dict(
     batch_size=2,
@@ -16,7 +17,7 @@ train_dataloader = dict(
         type="CocoDataset",
         data_root=data_root,
         ann_file="train.json",
-        data_prefix=dict(img="images/"),
+        data_prefix=dict(img=img_root),
         metainfo=dict(classes=classes),
     ),
 )
@@ -28,12 +29,15 @@ val_dataloader = dict(
         type="CocoDataset",
         data_root=data_root,
         ann_file="val.json",
-        data_prefix=dict(img="images/"),
+        data_prefix=dict(img=img_root),
         metainfo=dict(classes=classes),
     ),
 )
 
 test_dataloader = val_dataloader
+
+val_cfg = dict()
+test_cfg = dict()
 
 val_evaluator = dict(type="CocoMetric", ann_file=data_root + "val.json", metric="bbox")
 test_evaluator = val_evaluator
@@ -53,7 +57,7 @@ optim_wrapper = dict(
     optimizer=dict(type="SGD", lr=0.002, momentum=0.9, weight_decay=0.0001),
 )
 
-train_cfg = dict(max_epochs=1)  # sanity; increase for real training
+train_cfg = dict(max_epochs=1)
 
 default_hooks = dict(checkpoint=dict(type="CheckpointHook", interval=1, max_keep_ckpts=1))
 
