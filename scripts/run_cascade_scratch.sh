@@ -12,12 +12,13 @@ VENV=~/venvs/omr-cascade
 REPO=~/jl1430/OMR-training
 SCRATCH_BASE=/usr/project/xtmp/$USER/omr_runs
 
-mkdir -p "$SCRATCH_BASE" "$REPO/artifacts"
+mkdir -p "$SCRATCH_BASE"
 
 source "$VENV/bin/activate"
 export PYTHONNOUSERSITE=1 PYTHONPATH=""
 
 RUN_DIR="$SCRATCH_BASE/cascade_$(date +%Y%m%d_%H%M%S)"
+ART_DIR="$REPO/artifacts/run_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$RUN_DIR"
 
 cd "$REPO"
@@ -46,14 +47,15 @@ mim train mmdet configs/cascade_omr.py \
     default_hooks.checkpoint.save_last=True
 
 echo "Training done, collecting artifacts..."
+mkdir -p "$ART_DIR"
 for f in "$RUN_DIR"/latest.pth "$RUN_DIR"/epoch_*.pth; do
-  [ -f "$f" ] && cp -n "$f" "$REPO/artifacts/"
+  [ -f "$f" ] && cp "$f" "$ART_DIR/"
 done
-cp -n "$RUN_DIR"/*.log.json "$REPO/artifacts/" 2>/dev/null || true
-cp -nr "$RUN_DIR"/vis_data "$REPO/artifacts/" 2>/dev/null || true
+cp "$RUN_DIR"/*.log.json "$ART_DIR/" 2>/dev/null || true
+cp -nr "$RUN_DIR"/vis_data "$ART_DIR/" 2>/dev/null || true
 
 echo "Cleaning scratch run dir..."
 rm -rf "$RUN_DIR"
 
-echo "Artifacts stored in $REPO/artifacts"
+echo "Artifacts stored in $ART_DIR"
 exit 0
