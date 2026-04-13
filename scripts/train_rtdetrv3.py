@@ -27,13 +27,13 @@ from torch.utils.data import DataLoader, Dataset
 
 try:
     from transformers import (
-        RTDetrForObjectDetection,
+        AutoModelForObjectDetection,
         AutoImageProcessor,
         get_cosine_schedule_with_warmup,
     )
 except ImportError as exc:  # pragma: no cover
     raise SystemExit(
-        "Install transformers >=4.38.0 to run this script. pip install transformers==4.38.0"
+        "Install transformers >=4.38.0 to run this script. pip install transformers==4.41.2"
     ) from exc
 
 
@@ -81,24 +81,32 @@ class CocoDetectionDataset(Dataset):
         img_path = self.img_dir / img_meta["file_name"]
         image = Image.open(img_path).convert("RGB")
 
-        anns = self.ann_index.get(img_meta["id"], [])
-        boxes, labels = [], []
-        for ann in anns:
-            bbox = ann["bbox"]  # [x, y, w, h]
-            boxes.append([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
-            labels.append(ann["category_id"])
+        anns_raw = self.ann_index.get(img_meta["id"], [])
+        anns = []
+        for ann in anns_raw:
+            x, y, w, h = ann["bbox"]
+            area = float(w * h)
+            anns.append(
+                {
+                    "image_id": img_meta["id"],
+                    "bbox": [x, y, w, h],
+                    "category_id": int(ann["category_id"]),
+                    "area": area,
+                    "iscrowd": ann.get("iscrowd", 0),
+                }
+            )
 
         target = {
             "image_id": torch.tensor([img_meta["id"]]),
-            "annotations": [
-                {
-                    "bbox": boxes,
-                    "category_id": labels,
-                }
-            ],
+            "annotations": anns,
         }
         inputs = self.processor(images=image, annotations=target, return_tensors="pt")
-        return {k: v.squeeze(0) for k, v in inputs.items()}
+        out = dict(inputs)
+        # squeeze batch dim for tensors; keep labels list intact
+        for key in ["pixel_values", "pixel_mask"]:
+            if key in out:
+                out[key] = out[key].squeeze(0)
+        return out
 
     @staticmethod
     def _load_coco(path: str) -> Dict[str, Any]:
@@ -112,11 +120,13 @@ class CocoDetectionDataset(Dataset):
 
 
 def collate_fn(batch):
-    # HuggingFace processors handle padding inside; here we just stack dict lists
-    collated = {}
-    for key in batch[0].keys():
-        collated[key] = [item[key] for item in batch]
-    return collated
+    pixel_values = torch.stack([b["pixel_values"] for b in batch])
+    pixel_mask = torch.stack([b["pixel_mask"] for b in batch]) if "pixel_mask" in batch[0] else None
+    labels = [b["labels"] for b in batch]
+    out = {"pixel_values": pixel_values, "labels": labels}
+    if pixel_mask is not None:
+        out["pixel_mask"] = pixel_mask
+    return out
 
 
 def to_device(batch, device):
@@ -138,7 +148,7 @@ def train(args):
         raise SystemExit("Please provide --checkpoint or set OMR_RTDETR_CKPT to a RT-DETRv3/v2 checkpoint.")
 
     image_processor = AutoImageProcessor.from_pretrained(args.checkpoint)
-    model = RTDetrForObjectDetection.from_pretrained(
+    model = AutoModelForObjectDetection.from_pretrained(
         args.checkpoint,
         ignore_mismatched_sizes=True,  # allow different class counts
         num_labels=args.num_classes,
