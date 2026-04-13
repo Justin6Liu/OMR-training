@@ -2,18 +2,22 @@
 Minimal TorchVision Faster R-CNN fine-tune on MUSCIMA++ COCO data.
 Uses torchvision COCO-pretrained weights (downloaded from download.pytorch.org).
 Writes checkpoints to /usr/project/xtmp/$USER/omr_runs/tv_frcnn.
+Tunable via env vars: EPOCHS (default 20), LR (0.002), BATCH (1), NUM_WORKERS (1).
+Includes simple horizontal flip augmentation and a StepLR scheduler.
 
 Paths assume cluster layout; adjust as needed.
 """
 
 import os
 import json
+import random
 from pathlib import Path
 
 import torch
 import torchvision
 from torch.utils.data import DataLoader
-from PIL import Image
+from torchvision.transforms import functional as TF
+from PIL import Image, ImageOps
 
 
 # ---- Paths (cluster defaults) ----
@@ -33,10 +37,11 @@ def load_coco(ann_path):
 
 
 class CocoDataset(torch.utils.data.Dataset):
-    def __init__(self, ann_path, img_root):
+    def __init__(self, ann_path, img_root, augment=False):
         self.id2fname, self.anns, _ = load_coco(ann_path)
         self.ids = list(self.id2fname.keys())
         self.img_root = Path(img_root)
+        self.augment = augment
 
     def __len__(self):
         return len(self.ids)
@@ -55,7 +60,17 @@ class CocoDataset(torch.utils.data.Dataset):
             "labels": torch.tensor(labels, dtype=torch.int64),
             "image_id": torch.tensor([img_id]),
         }
-        return torchvision.transforms.functional.to_tensor(img), target
+
+        # Simple horizontal flip augmentation for training
+        if self.augment and random.random() < 0.5:
+            img = ImageOps.mirror(img)
+            w = img.width
+            b = target["boxes"].clone()
+            b[:, 0] = w - b[:, 2]
+            b[:, 2] = w - b[:, 0]
+            target["boxes"] = b
+
+        return TF.to_tensor(img), target
 
 
 def collate(batch):
@@ -66,11 +81,16 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    train_ds = CocoDataset(TRAIN_JSON, IMG_ROOT)
-    val_ds = CocoDataset(VAL_JSON, IMG_ROOT)
+    batch_size = int(os.environ.get("BATCH", "1"))
+    num_workers = int(os.environ.get("NUM_WORKERS", "1"))
+    epochs = int(os.environ.get("EPOCHS", "20"))
+    lr = float(os.environ.get("LR", "0.002"))
 
-    train_loader = DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=1, collate_fn=collate)
-    val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=1, collate_fn=collate)
+    train_ds = CocoDataset(TRAIN_JSON, IMG_ROOT, augment=True)
+    val_ds = CocoDataset(VAL_JSON, IMG_ROOT, augment=False)
+
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate)
+    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate)
 
     # Load COCO-pretrained detector
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights="DEFAULT")
@@ -81,9 +101,9 @@ def main():
     model.roi_heads.box_predictor = torchvision.models.detection.faster_rcnn.FastRCNNPredictor(in_features, num_classes)
     model.to(device)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.002, momentum=0.9, weight_decay=1e-4)
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=max(1, epochs // 2), gamma=0.1)
 
-    epochs = 10
     for epoch in range(epochs):
         model.train()
         for imgs, targets in train_loader:
@@ -93,9 +113,10 @@ def main():
             loss = sum(loss_dict.values())
             optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
             optimizer.step()
         torch.cuda.empty_cache()
-
+        scheduler.step()
         ckpt_path = Path(OUT_DIR) / f"epoch_{epoch+1}.pth"
         torch.save(model.state_dict(), ckpt_path)
         print(f"saved {ckpt_path}")
