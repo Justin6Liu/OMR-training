@@ -43,11 +43,12 @@ val_evaluator = dict(type="CocoMetric", ann_file=data_root + "val.json", metric=
 test_evaluator = val_evaluator
 
 model = dict(
+    type="CascadeRCNN",
     roi_head=dict(
         bbox_head=[
-            dict(num_classes=115),
-            dict(num_classes=115),
-            dict(num_classes=115),
+            dict(type="Shared2FCBBoxHead", num_classes=115),
+            dict(type="Shared2FCBBoxHead", num_classes=115),
+            dict(type="Shared2FCBBoxHead", num_classes=115),
         ]
     )
 )
