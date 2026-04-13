@@ -69,11 +69,12 @@ def main():
     train_ds = CocoDataset(TRAIN_JSON, IMG_ROOT)
     val_ds = CocoDataset(VAL_JSON, IMG_ROOT)
 
-    train_loader = DataLoader(train_ds, batch_size=2, shuffle=True, num_workers=4, collate_fn=collate)
-    val_loader = DataLoader(val_ds, batch_size=2, shuffle=False, num_workers=4, collate_fn=collate)
+    train_loader = DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=1, collate_fn=collate)
+    val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=1, collate_fn=collate)
 
     # Load COCO-pretrained detector
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights="DEFAULT")
+    torch.backends.cudnn.benchmark = False
     # Adjust classifier head for dataset classes
     num_classes = max(max((t["labels"].max().item() if len(t["labels"]) else 0) for _, t in train_ds), 114) + 1
     in_features = model.roi_heads.box_predictor.cls_score.in_features
@@ -93,6 +94,7 @@ def main():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+        torch.cuda.empty_cache()
 
         ckpt_path = Path(OUT_DIR) / f"epoch_{epoch+1}.pth"
         torch.save(model.state_dict(), ckpt_path)
