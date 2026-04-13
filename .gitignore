@@ -1,0 +1,11 @@
+# Large datasets and archives
+/CvcMuscima-Distortions/
+/CVCMUSCIMA_SR.zip
+
+# macOS
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+

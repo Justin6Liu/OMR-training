@@ -38,6 +38,17 @@ except ImportError as exc:  # pragma: no cover
 
 
 # -----------------------
+# Data locations (override via env vars to match cluster paths)
+# -----------------------
+DATA_ROOT = Path(os.getenv("OMR_DATA_ROOT", "/Users/justinliu/Documents/GitHub/muscima-pp"))
+DEFAULT_TRAIN_IMAGES = Path(os.getenv("OMR_TRAIN_IMAGES", DATA_ROOT / "v2.0/tiles/train/images"))
+DEFAULT_TRAIN_ANN = Path(os.getenv("OMR_TRAIN_ANN", DATA_ROOT / "v2.0/tiles/train/annotations.json"))
+DEFAULT_VAL_IMAGES = Path(os.getenv("OMR_VAL_IMAGES", DATA_ROOT / "v2.0/tiles/val/images"))
+DEFAULT_VAL_ANN = Path(os.getenv("OMR_VAL_ANN", DATA_ROOT / "v2.0/tiles/val/annotations.json"))
+
+
+
+# -----------------------
 # Dataset
 # -----------------------
 
@@ -122,6 +133,9 @@ def to_device(batch, device):
 
 def train(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    if not args.checkpoint:
+        raise SystemExit("Please provide --checkpoint or set OMR_RTDETR_CKPT to a RT-DETRv3/v2 checkpoint.")
 
     image_processor = AutoImageProcessor.from_pretrained(args.checkpoint)
     model = RTDetrForObjectDetection.from_pretrained(
@@ -212,12 +226,32 @@ def evaluate(model, loader, device):
 
 def parse_args():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--train-images", required=True, help="Path to train image directory (tiled).")
-    ap.add_argument("--train-annotations", required=True, help="Path to train COCO json.")
-    ap.add_argument("--val-images", required=True, help="Path to val image directory (tiled).")
-    ap.add_argument("--val-annotations", required=True, help="Path to val COCO json.")
-    ap.add_argument("--checkpoint", required=True, help="HF checkpoint name or path (RT-DETRv3/v2).")
-    ap.add_argument("--num-classes", type=int, required=True, help="Number of detection classes.")
+    ap.add_argument(
+        "--train-images",
+        default=str(DEFAULT_TRAIN_IMAGES),
+        help="Path to train image directory (tiled).",
+    )
+    ap.add_argument(
+        "--train-annotations",
+        default=str(DEFAULT_TRAIN_ANN),
+        help="Path to train COCO json.",
+    )
+    ap.add_argument(
+        "--val-images",
+        default=str(DEFAULT_VAL_IMAGES),
+        help="Path to val image directory (tiled).",
+    )
+    ap.add_argument(
+        "--val-annotations",
+        default=str(DEFAULT_VAL_ANN),
+        help="Path to val COCO json.",
+    )
+    ap.add_argument(
+        "--checkpoint",
+        default=os.getenv("OMR_RTDETR_CKPT", ""),
+        help="HF checkpoint name or path (RT-DETRv3/v2).",
+    )
+    ap.add_argument("--num-classes", type=int, default=int(os.getenv("OMR_NUM_CLASSES", "67")), help="Number of detection classes.")
     ap.add_argument("--epochs", type=int, default=80)
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--lr", type=float, default=1e-4)
@@ -234,4 +268,3 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     train(args)
-
