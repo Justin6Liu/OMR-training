@@ -20,6 +20,13 @@ category_source = Path(os.getenv("CATEGORY_SOURCE_JSON", os.path.join(data_root,
 _cats = json.loads(category_source.read_text())["categories"]
 classes = tuple(c["name"] for c in _cats)
 
+
+def _optional_pretrained_init():
+    checkpoint = os.getenv("PRETRAINED")
+    if not checkpoint or checkpoint.lower() == "none":
+        return None
+    return dict(type="Pretrained", checkpoint=checkpoint)
+
 train_pipeline = [
     dict(type="LoadImageFromFile"),
     dict(type="LoadAnnotations", with_bbox=True),
@@ -103,14 +110,7 @@ model = dict(
         out_indices=(0, 1, 2, 3),
         with_cp=False,
         convert_weights=True,
-        init_cfg=dict(
-            type="Pretrained",
-            checkpoint=os.getenv(
-                "PRETRAINED",
-                "https://download.openmmlab.com/mmdetection/v2.0/swin/"
-                "swin_tiny_patch4_window7_224.pth",
-            ),
-        ),
+        init_cfg=_optional_pretrained_init(),
     ),
     neck=dict(
         _delete_=True,
