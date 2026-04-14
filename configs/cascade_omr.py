@@ -20,8 +20,8 @@ train_dataloader = dict(
         ann_file="train.json",
         data_prefix=dict(img=img_root),
         metainfo=dict(),
+        filter_cfg=dict(filter_empty_gt=False),
     ),
-    filter_cfg=dict(filter_empty_gt=False),
 )
 
 val_dataloader = dict(
@@ -33,8 +33,8 @@ val_dataloader = dict(
         ann_file="val.json",
         data_prefix=dict(img=img_root),
         metainfo=dict(),
+        filter_cfg=dict(filter_empty_gt=False),
     ),
-    filter_cfg=dict(filter_empty_gt=False),
 )
 
 test_dataloader = val_dataloader
