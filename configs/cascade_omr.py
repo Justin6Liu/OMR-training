@@ -17,7 +17,7 @@ _cats = json.load(open(os.path.join(data_root, "train.json")))["categories"]
 classes = tuple([c["name"] for c in _cats])
 
 train_dataloader = dict(
-    batch_size=2,
+    batch_size=1,
     num_workers=2,
     dataset=dict(
         type="CocoDataset",
@@ -61,18 +61,18 @@ model = dict(
     )
 )
 # Smaller/skinny anchors and more proposals for tiny symbols
+# Lighter anchor setting for lower memory
 model["rpn_head"] = dict(
     type="RPNHead",
     anchor_generator=dict(
         type="AnchorGenerator",
         scales=[8, 16, 32, 64, 128],
-        ratios=[0.2, 0.5, 1.0, 2.0, 5.0],
+        ratios=[0.5, 1.0, 2.0],
         strides=[4, 8, 16, 32, 64],
     ),
     bbox_coder=dict(type="DeltaXYWHBBoxCoder", target_means=[0., 0., 0., 0.],
                     target_stds=[1.0, 1.0, 1.0, 1.0]),
     loss_cls=dict(type="CrossEntropyLoss", use_sigmoid=True, loss_weight=1.0),
-    # Use SmoothL1Loss to avoid beta argument issues in this MMDet version
     loss_bbox=dict(type="SmoothL1Loss", beta=1.0 / 9.0, loss_weight=1.0)
 )
 
@@ -82,7 +82,7 @@ optim_wrapper = dict(
 )
 
 train_cfg = dict(max_epochs=12)
-train_cfg = dict(max_epochs=36)
+train_cfg = dict(max_epochs=24)
 
 default_hooks = dict(checkpoint=dict(type="CheckpointHook", interval=1, max_keep_ckpts=1))
 default_hooks = dict(checkpoint=dict(type="CheckpointHook", interval=4, max_keep_ckpts=3))
