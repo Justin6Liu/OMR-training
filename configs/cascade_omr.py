@@ -9,7 +9,7 @@ _base_ = [
 data_root = "/home/users/jl1430/jl1430/OMR-training/datasets/muscima_coco/"
 img_root = "/home/users/jl1430/muscima-pp/v2.0/data/images/"
 
-classes = tuple([f"class_{i}" for i in range(115)])
+classes = None  # let COCO metas come from the json
 
 train_dataloader = dict(
     batch_size=2,
@@ -19,8 +19,9 @@ train_dataloader = dict(
         data_root=data_root,
         ann_file="train.json",
         data_prefix=dict(img=img_root),
-        metainfo=dict(classes=classes),
+        metainfo=dict(),
     ),
+    filter_cfg=dict(filter_empty_gt=False),
 )
 
 val_dataloader = dict(
@@ -31,8 +32,9 @@ val_dataloader = dict(
         data_root=data_root,
         ann_file="val.json",
         data_prefix=dict(img=img_root),
-        metainfo=dict(classes=classes),
+        metainfo=dict(),
     ),
+    filter_cfg=dict(filter_empty_gt=False),
 )
 
 test_dataloader = val_dataloader
@@ -42,6 +44,7 @@ test_evaluator = val_evaluator
 
 model = dict(
     type="CascadeRCNN",
+    test_cfg=dict(rcnn=dict(score_thr=0.001)),
     roi_head=dict(
         bbox_head=[
             dict(type="Shared2FCBBoxHead", num_classes=115),
