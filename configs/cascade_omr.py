@@ -8,11 +8,16 @@ _base_ = [
     "mmdet::cascade_rcnn/cascade-rcnn_r101_fpn_1x_coco.py",
 ]
 
+work_dir = os.getenv("WORK_DIR", "./work_dirs/cascade_omr")
+
 data_root = "/home/users/jl1430/jl1430/OMR-training/datasets/muscima_coco/"
 img_root = "/home/users/jl1430/muscima-pp/v2.0/data/images/"
+train_ann_file = os.getenv("TRAIN_ANN_FILE", "train.json")
+val_ann_file = os.getenv("VAL_ANN_FILE", "val.json")
+category_source = os.getenv("CATEGORY_SOURCE_JSON", os.path.join(data_root, train_ann_file))
 
 import json
-_cats = json.load(open(os.path.join(data_root, "train.json")))["categories"]
+_cats = json.loads(open(category_source).read())["categories"]
 classes = tuple([c["name"] for c in _cats])
 
 train_dataloader = dict(
@@ -21,7 +26,7 @@ train_dataloader = dict(
     dataset=dict(
         type="CocoDataset",
         data_root=data_root,
-        ann_file="train.json",
+        ann_file=train_ann_file,
         data_prefix=dict(img=img_root),
         metainfo=dict(classes=classes),
         filter_cfg=dict(filter_empty_gt=False),
@@ -35,7 +40,7 @@ val_dataloader = dict(
     dataset=dict(
         type="CocoDataset",
         data_root=data_root,
-        ann_file="val.json",
+        ann_file=val_ann_file,
         data_prefix=dict(img=img_root),
         metainfo=dict(classes=classes),
         filter_cfg=dict(filter_empty_gt=False),
@@ -45,7 +50,7 @@ val_dataloader = dict(
 
 test_dataloader = val_dataloader
 
-val_evaluator = dict(type="CocoMetric", ann_file=data_root + "val.json", metric="bbox")
+val_evaluator = dict(type="CocoMetric", ann_file=data_root + val_ann_file, metric="bbox")
 test_evaluator = val_evaluator
 
 # Override image scale for lower memory (further downscaled)
