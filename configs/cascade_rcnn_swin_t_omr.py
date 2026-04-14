@@ -6,6 +6,8 @@ _base_ = [
     "mmdet::cascade_rcnn/cascade-rcnn_r50_fpn_1x_coco.py",
 ]
 
+work_dir = os.getenv("WORK_DIR", "./work_dirs/cascade_rcnn_swin_t_omr")
+
 data_root = os.getenv(
     "DATA_ROOT",
     "/home/users/jl1430/jl1430/OMR-training/datasets/muscima_coco/",
