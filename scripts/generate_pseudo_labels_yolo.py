@@ -44,6 +44,8 @@ def main():
     ap.add_argument("--imgsz", type=int, default=960, help="YOLO inference image size")
     ap.add_argument("--merge-gt", action=argparse.BooleanOptionalAction, default=True,
                     help="Include ground-truth annotations in the output")
+    ap.add_argument("--device", default="cuda", help="Device for inference (e.g., 'cuda', 'cuda:0', or 'cpu')")
+    ap.add_argument("--batch", type=int, default=1, help="Batch size for YOLO predict")
     args = ap.parse_args()
 
     images, categories, gt_anns = load_coco(args.ann_json)
@@ -62,6 +64,8 @@ def main():
         image_paths,
         imgsz=args.imgsz,
         conf=args.score_thr,
+        device=args.device,
+        batch=args.batch,
         stream=True,
         verbose=False,
     )
@@ -104,4 +108,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
