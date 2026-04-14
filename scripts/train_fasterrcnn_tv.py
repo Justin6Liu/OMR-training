@@ -51,9 +51,18 @@ class CocoDataset(torch.utils.data.Dataset):
         img_path = self.img_root / self.id2fname[img_id]
         img = Image.open(img_path).convert("RGB")
         boxes, labels = [], []
+        W, H = img.size
         for a in self.anns.get(img_id, []):
             x, y, w, h = a["bbox"]
-            boxes.append([x, y, x + w, y + h])
+            if w <= 0 or h <= 0:
+                continue
+            x1, y1, x2, y2 = x, y, x + w, y + h
+            # Clamp to image bounds and re-order just in case
+            x1, x2 = sorted((max(0.0, x1), min(W, x2)))
+            y1, y2 = sorted((max(0.0, y1), min(H, y2)))
+            if x2 <= x1 or y2 <= y1:
+                continue
+            boxes.append([x1, y1, x2, y2])
             labels.append(a["category_id"])
         target = {
             "boxes": torch.tensor(boxes, dtype=torch.float32),
@@ -62,12 +71,11 @@ class CocoDataset(torch.utils.data.Dataset):
         }
 
         # Simple horizontal flip augmentation for training
-        if self.augment and random.random() < 0.5:
+        if self.augment and random.random() < 0.5 and len(target["boxes"]) > 0:
             img = ImageOps.mirror(img)
             w = img.width
             b = target["boxes"].clone()
-            b[:, 0] = w - b[:, 2]
-            b[:, 2] = w - b[:, 0]
+            b[:, [0, 2]] = w - b[:, [2, 0]]
             target["boxes"] = b
 
         return TF.to_tensor(img), target
