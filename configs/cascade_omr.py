@@ -178,4 +178,4 @@ train_cfg = dict(max_epochs=36)
 default_hooks = dict(checkpoint=dict(type="CheckpointHook", interval=1, max_keep_ckpts=1))
 default_hooks = dict(checkpoint=dict(type="CheckpointHook", interval=4, max_keep_ckpts=3))
 
-load_from = "/home/users/jl1430/jl1430/OMR-training/cascade_rcnn_r50_fpn_1x_coco_20200317-0b6a2fbf.pth"
+load_from = "/home/users/jl1430/OMR-training/cascade_rcnn_r50_fpn_1x_coco_20200317-0b6a2fbf.pth"
