@@ -1,12 +1,11 @@
 import os
 import json
 
-# Cascade R-CNN R50 FPN for MUSCIMA++ (115 classes)
+# Cascade R-CNN (ResNet-101 FPN) for MUSCIMA++ (115 classes)
 # Adjust paths below for your environment.
 
 _base_ = [
-    # Switch back to R50 for lower memory
-    "mmdet::cascade_rcnn/cascade-rcnn_r50_fpn_1x_coco.py",
+    "mmdet::cascade_rcnn/cascade-rcnn_r101_fpn_1x_coco.py",
 ]
 
 data_root = "/home/users/jl1430/jl1430/OMR-training/datasets/muscima_coco/"
@@ -171,11 +170,11 @@ optim_wrapper = dict(
     optimizer=dict(type="SGD", lr=0.002, momentum=0.9, weight_decay=0.0001),
 )
 
-train_cfg = dict(max_epochs=12)
-train_cfg = dict(max_epochs=24)
-train_cfg = dict(max_epochs=36)
+# Allow overriding epochs via EPOCHS env var (default 36)
+train_cfg = dict(max_epochs=int(os.getenv("EPOCHS", 36)))
 
-default_hooks = dict(checkpoint=dict(type="CheckpointHook", interval=1, max_keep_ckpts=1))
+# Keep a few checkpoints; save every 4 epochs by default
 default_hooks = dict(checkpoint=dict(type="CheckpointHook", interval=4, max_keep_ckpts=3))
 
-load_from = "/home/users/jl1430/OMR-training/cascade_rcnn_r50_fpn_1x_coco_20200317-0b6a2fbf.pth"
+# Pretrained detector weights (COCO) — R101
+load_from = "/home/users/jl1430/jl1430/OMR-training/cascade_rcnn_r101_fpn_1x_coco_20200317-0b6a2fbf.pth"
