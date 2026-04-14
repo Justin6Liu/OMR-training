@@ -136,9 +136,9 @@ model = dict(
     ),
     roi_head=dict(
         bbox_head=[
-            dict(num_classes=len(classes)),
-            dict(num_classes=len(classes)),
-            dict(num_classes=len(classes)),
+            dict(type="Shared2FCBBoxHead", num_classes=len(classes)),
+            dict(type="Shared2FCBBoxHead", num_classes=len(classes)),
+            dict(type="Shared2FCBBoxHead", num_classes=len(classes)),
         ],
     ),
     test_cfg=dict(
