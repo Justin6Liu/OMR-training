@@ -148,7 +148,8 @@ def main():
         aspect_ratios=(0.2, 0.5, 1.0, 2.0, 5.0),
     )
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
-        weights="DEFAULT",
+        weights=None,  # custom anchors; avoid RPN shape mismatch
+        weights_backbone="IMAGENET1K_V2",
         rpn_anchor_generator=anchor_generator,
         box_detections_per_img=300,
     )
