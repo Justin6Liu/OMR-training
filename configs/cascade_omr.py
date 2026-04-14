@@ -180,5 +180,5 @@ default_hooks = dict(checkpoint=dict(type="CheckpointHook", interval=4, max_keep
 # You can override via PRETRAINED env var; default matches cluster path.
 load_from = os.getenv(
     "PRETRAINED",
-    "/home/users/jl1430/OMR-training/cascade_rcnn_r101_fpn_1x_coco_20200317-0b6a2fbf.pth",
+    "/home/users/jl1430/jl1430/OMR-training/cascade_rcnn_r101_fpn_1x_coco_20200317-0b6a2fbf.pth",
 )
