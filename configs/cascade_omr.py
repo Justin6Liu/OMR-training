@@ -48,17 +48,17 @@ test_dataloader = val_dataloader
 val_evaluator = dict(type="CocoMetric", ann_file=data_root + "val.json", metric="bbox")
 test_evaluator = val_evaluator
 
-# Override image scale for lower memory
+# Override image scale for lower memory (further downscale if OOM)
 train_pipeline = [
     dict(type="LoadImageFromFile"),
-    dict(type="Resize", scale=(1024, 640), keep_ratio=True),
+    dict(type="Resize", scale=(896, 576), keep_ratio=True),
     dict(type="LoadAnnotations", with_bbox=True),
     dict(type="RandomFlip", prob=0.5),
     dict(type="PackDetInputs"),
 ]
 test_pipeline = [
     dict(type="LoadImageFromFile"),
-    dict(type="Resize", scale=(1024, 640), keep_ratio=True),
+    dict(type="Resize", scale=(896, 576), keep_ratio=True),
     dict(type="LoadAnnotations", with_bbox=True),
     dict(type="PackDetInputs"),
 ]
@@ -128,15 +128,15 @@ model["rpn_head"]["train_cfg"] = dict(
     allowed_border=-1,
     pos_weight=-1,
     debug=False,
-    nms_pre=600,
-    max_per_img=300,
+    nms_pre=400,
+    max_per_img=200,
 )
-model["rpn_head"]["test_cfg"] = dict(nms_pre=600, max_per_img=300)
+model["rpn_head"]["test_cfg"] = dict(nms_pre=400, max_per_img=200)
 
 # ROI configs for lower memory
 model["roi_head"]["train_cfg"] = dict(
     rpn_proposal=dict(
-        nms_pre=600, max_per_img=300, nms=dict(type="nms", iou_threshold=0.7), min_bbox_size=0),
+        nms_pre=400, max_per_img=200, nms=dict(type="nms", iou_threshold=0.7), min_bbox_size=0),
     rcnn=dict(
         assigner=dict(
             type="MaxIoUAssigner",
@@ -159,15 +159,16 @@ model["roi_head"]["train_cfg"] = dict(
     )
 )
 model["roi_head"]["test_cfg"] = dict(
-    rpn=dict(nms_pre=600, max_per_img=300, nms=dict(type="nms", iou_threshold=0.7), min_bbox_size=0),
+    rpn=dict(nms_pre=400, max_per_img=200, nms=dict(type="nms", iou_threshold=0.7), min_bbox_size=0),
     rcnn=dict(
         score_thr=0.001,
         nms=dict(type="nms", iou_threshold=0.5),
-        max_per_img=100))
+        max_per_img=50))
 
 optim_wrapper = dict(
-    type="OptimWrapper",
+    type="AmpOptimWrapper",
     optimizer=dict(type="SGD", lr=0.002, momentum=0.9, weight_decay=0.0001),
+    # mmengine will use autocast; loss_scale auto
 )
 
 # Allow overriding epochs via EPOCHS env var (default 36)
