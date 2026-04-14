@@ -14,6 +14,7 @@ DATA_ROOT=${DATA_ROOT:-/home/users/jl1430/jl1430/OMR-training/datasets/muscima_c
 IMG_ROOT=${IMG_ROOT:-/home/users/jl1430/muscima-pp/v2.0/data/images/}
 RUN_NAME=${RUN_NAME:-$(basename "${CONFIG%.py}")_$(date +%Y%m%d_%H%M%S)}
 WORK_DIR="$SCRATCH_BASE/$RUN_NAME"
+CONSOLE_LOG="$WORK_DIR/console.log"
 
 mkdir -p "$SCRATCH_BASE" "$WORK_DIR"
 
@@ -26,7 +27,9 @@ echo "Config: $CONFIG"
 echo "Train ann: $TRAIN_ANN_FILE"
 echo "Val ann: $VAL_ANN_FILE"
 echo "Work dir: $WORK_DIR"
+echo "Console log: $CONSOLE_LOG"
 
+set +e
 mim train mmdet "$CONFIG" \
   --work-dir "$WORK_DIR" \
   --cfg-options \
@@ -38,6 +41,16 @@ mim train mmdet "$CONFIG" \
     test_dataloader.dataset.data_prefix.img="$IMG_ROOT" \
     train_dataloader.dataset.ann_file="$TRAIN_ANN_FILE" \
     val_dataloader.dataset.ann_file="$VAL_ANN_FILE" \
-    test_dataloader.dataset.ann_file="$VAL_ANN_FILE"
+    test_dataloader.dataset.ann_file="$VAL_ANN_FILE" \
+  >"$CONSOLE_LOG" 2>&1
+status=$?
+set -e
+
+if [ "$status" -ne 0 ]; then
+  echo "Training failed with exit code $status"
+  echo "Last 60 lines from $CONSOLE_LOG:"
+  tail -n 60 "$CONSOLE_LOG" || true
+  exit "$status"
+fi
 
 echo "Run finished: $WORK_DIR"
