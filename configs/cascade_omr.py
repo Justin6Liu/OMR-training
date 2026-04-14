@@ -16,9 +16,37 @@ train_ann_file = os.getenv("TRAIN_ANN_FILE", "train.json")
 val_ann_file = os.getenv("VAL_ANN_FILE", "val.json")
 category_source = os.getenv("CATEGORY_SOURCE_JSON", os.path.join(data_root, train_ann_file))
 
+
+def _env_int(name, default):
+    value = os.getenv(name)
+    return int(value) if value is not None else default
+
+
+def _env_float(name, default):
+    value = os.getenv(name)
+    return float(value) if value is not None else default
+
+
+def _env_scale(name, default=(640, 448)):
+    value = os.getenv(name)
+    if not value:
+        return default
+    w, h = value.split(",")
+    return (int(w), int(h))
+
 import json
 _cats = json.loads(open(category_source).read())["categories"]
 classes = tuple([c["name"] for c in _cats])
+image_scale = _env_scale("IMG_SCALE", (640, 448))
+rpn_nms_pre_train = _env_int("RPN_NMS_PRE_TRAIN", 128)
+rpn_max_per_img_train = _env_int("RPN_MAX_PER_IMG_TRAIN", 64)
+rpn_nms_pre_test = _env_int("RPN_NMS_PRE_TEST", 128)
+rpn_max_per_img_test = _env_int("RPN_MAX_PER_IMG_TEST", 64)
+roi_rpn_nms_pre = _env_int("ROI_RPN_NMS_PRE", 128)
+roi_rpn_max_per_img = _env_int("ROI_RPN_MAX_PER_IMG", 64)
+roi_test_rpn_nms_pre = _env_int("ROI_TEST_RPN_NMS_PRE", 256)
+roi_test_rpn_max_per_img = _env_int("ROI_TEST_RPN_MAX_PER_IMG", 128)
+roi_test_max_per_img = _env_int("ROI_TEST_MAX_PER_IMG", 30)
 
 train_dataloader = dict(
     batch_size=1,
@@ -56,14 +84,14 @@ test_evaluator = val_evaluator
 # Override image scale for lower memory (further downscaled)
 train_pipeline = [
     dict(type="LoadImageFromFile"),
-    dict(type="Resize", scale=(640, 448), keep_ratio=True),
+    dict(type="Resize", scale=image_scale, keep_ratio=True),
     dict(type="LoadAnnotations", with_bbox=True),
     dict(type="RandomFlip", prob=0.5),
     dict(type="PackDetInputs"),
 ]
 test_pipeline = [
     dict(type="LoadImageFromFile"),
-    dict(type="Resize", scale=(640, 448), keep_ratio=True),
+    dict(type="Resize", scale=image_scale, keep_ratio=True),
     dict(type="LoadAnnotations", with_bbox=True),
     dict(type="PackDetInputs"),
 ]
@@ -133,15 +161,18 @@ model["rpn_head"]["train_cfg"] = dict(
     allowed_border=-1,
     pos_weight=-1,
     debug=False,
-    nms_pre=128,
-    max_per_img=64,
+    nms_pre=rpn_nms_pre_train,
+    max_per_img=rpn_max_per_img_train,
 )
-model["rpn_head"]["test_cfg"] = dict(nms_pre=128, max_per_img=64)
+model["rpn_head"]["test_cfg"] = dict(nms_pre=rpn_nms_pre_test, max_per_img=rpn_max_per_img_test)
 
 # ROI configs for lower memory
 model["roi_head"]["train_cfg"] = dict(
     rpn_proposal=dict(
-        nms_pre=128, max_per_img=64, nms=dict(type="nms", iou_threshold=0.7), min_bbox_size=0),
+        nms_pre=roi_rpn_nms_pre,
+        max_per_img=roi_rpn_max_per_img,
+        nms=dict(type="nms", iou_threshold=0.7),
+        min_bbox_size=0),
     rcnn=dict(
         assigner=dict(
             type="MaxIoUAssigner",
@@ -164,11 +195,15 @@ model["roi_head"]["train_cfg"] = dict(
     )
 )
 model["roi_head"]["test_cfg"] = dict(
-    rpn=dict(nms_pre=256, max_per_img=128, nms=dict(type="nms", iou_threshold=0.7), min_bbox_size=0),
+    rpn=dict(
+        nms_pre=roi_test_rpn_nms_pre,
+        max_per_img=roi_test_rpn_max_per_img,
+        nms=dict(type="nms", iou_threshold=0.7),
+        min_bbox_size=0),
     rcnn=dict(
         score_thr=0.001,
         nms=dict(type="nms", iou_threshold=0.5),
-        max_per_img=30))
+        max_per_img=roi_test_max_per_img))
 
 optim_wrapper = dict(
     type="OptimWrapper",
