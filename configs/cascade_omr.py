@@ -48,17 +48,17 @@ test_dataloader = val_dataloader
 val_evaluator = dict(type="CocoMetric", ann_file=data_root + "val.json", metric="bbox")
 test_evaluator = val_evaluator
 
-# Override image scale for lower memory (further downscale if OOM)
+# Override image scale for lower memory (downscaled again to fit V100 32G)
 train_pipeline = [
     dict(type="LoadImageFromFile"),
-    dict(type="Resize", scale=(896, 576), keep_ratio=True),
+    dict(type="Resize", scale=(768, 512), keep_ratio=True),
     dict(type="LoadAnnotations", with_bbox=True),
     dict(type="RandomFlip", prob=0.5),
     dict(type="PackDetInputs"),
 ]
 test_pipeline = [
     dict(type="LoadImageFromFile"),
-    dict(type="Resize", scale=(896, 576), keep_ratio=True),
+    dict(type="Resize", scale=(768, 512), keep_ratio=True),
     dict(type="LoadAnnotations", with_bbox=True),
     dict(type="PackDetInputs"),
 ]
@@ -128,15 +128,15 @@ model["rpn_head"]["train_cfg"] = dict(
     allowed_border=-1,
     pos_weight=-1,
     debug=False,
-    nms_pre=400,
-    max_per_img=200,
+    nms_pre=256,
+    max_per_img=128,
 )
-model["rpn_head"]["test_cfg"] = dict(nms_pre=400, max_per_img=200)
+model["rpn_head"]["test_cfg"] = dict(nms_pre=256, max_per_img=128)
 
 # ROI configs for lower memory
 model["roi_head"]["train_cfg"] = dict(
     rpn_proposal=dict(
-        nms_pre=400, max_per_img=200, nms=dict(type="nms", iou_threshold=0.7), min_bbox_size=0),
+        nms_pre=256, max_per_img=128, nms=dict(type="nms", iou_threshold=0.7), min_bbox_size=0),
     rcnn=dict(
         assigner=dict(
             type="MaxIoUAssigner",
@@ -159,11 +159,11 @@ model["roi_head"]["train_cfg"] = dict(
     )
 )
 model["roi_head"]["test_cfg"] = dict(
-    rpn=dict(nms_pre=400, max_per_img=200, nms=dict(type="nms", iou_threshold=0.7), min_bbox_size=0),
+    rpn=dict(nms_pre=256, max_per_img=128, nms=dict(type="nms", iou_threshold=0.7), min_bbox_size=0),
     rcnn=dict(
         score_thr=0.001,
         nms=dict(type="nms", iou_threshold=0.5),
-        max_per_img=50))
+        max_per_img=30))
 
 optim_wrapper = dict(
     type="AmpOptimWrapper",
