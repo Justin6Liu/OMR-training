@@ -1,6 +1,5 @@
 import json
 import os
-from pathlib import Path
 
 _base_ = [
     "mmdet::faster_rcnn/faster-rcnn_r50_fpn_1x_coco.py",
@@ -18,8 +17,15 @@ img_root = os.getenv(
 )
 train_ann_file = os.getenv("TRAIN_ANN_FILE", "train.json")
 val_ann_file = os.getenv("VAL_ANN_FILE", "val.json")
-category_source = Path(os.getenv("CATEGORY_SOURCE_JSON", os.path.join(data_root, train_ann_file)))
-_cats = json.loads(category_source.read_text())["categories"]
+category_source = os.getenv("CATEGORY_SOURCE_JSON", os.path.join(data_root, train_ann_file))
+
+
+def _load_categories(path):
+    with open(path, "r") as handle:
+        return json.loads(handle.read())["categories"]
+
+
+_cats = _load_categories(category_source)
 classes = tuple(c["name"] for c in _cats)
 
 
