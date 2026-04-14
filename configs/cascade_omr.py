@@ -166,9 +166,8 @@ model["roi_head"]["test_cfg"] = dict(
         max_per_img=30))
 
 optim_wrapper = dict(
-    type="AmpOptimWrapper",
+    type="OptimWrapper",
     optimizer=dict(type="SGD", lr=0.002, momentum=0.9, weight_decay=0.0001),
-    # mmengine will use autocast; loss_scale auto
 )
 
 # Allow overriding epochs via EPOCHS env var (default 36)
