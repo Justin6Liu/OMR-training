@@ -5,8 +5,8 @@ import json
 # Adjust paths below for your environment.
 
 _base_ = [
-    # Use Cascade R-CNN backbone config (box only; our dataset lacks masks)
-    "mmdet::cascade_rcnn/cascade-rcnn_r50_fpn_1x_coco.py",
+    # Switch to R101 backbone config
+    "mmdet::cascade_rcnn/cascade-rcnn_r101_fpn_1x_coco.py",
 ]
 
 data_root = "/home/users/jl1430/jl1430/OMR-training/datasets/muscima_coco/"
@@ -27,6 +27,7 @@ train_dataloader = dict(
         metainfo=dict(classes=classes),
         filter_cfg=dict(filter_empty_gt=False),
     ),
+    sampler=dict(type="DefaultSampler", shuffle=True),
 )
 
 val_dataloader = dict(
@@ -40,6 +41,7 @@ val_dataloader = dict(
         metainfo=dict(classes=classes),
         filter_cfg=dict(filter_empty_gt=False),
     ),
+    sampler=dict(type="DefaultSampler", shuffle=False),
 )
 
 test_dataloader = val_dataloader
@@ -58,6 +60,20 @@ model = dict(
         ],
     )
 )
+# Smaller/skinny anchors and more proposals for tiny symbols
+model["rpn_head"] = dict(
+    type="RPNHead",
+    anchor_generator=dict(
+        type="AnchorGenerator",
+        scales=[8, 16, 32, 64, 128],
+        ratios=[0.2, 0.5, 1.0, 2.0, 5.0],
+        strides=[4, 8, 16, 32, 64],
+    ),
+    bbox_coder=dict(type="DeltaXYWHBBoxCoder", target_means=[0., 0., 0., 0.],
+                    target_stds=[1.0, 1.0, 1.0, 1.0]),
+    loss_cls=dict(type="CrossEntropyLoss", use_sigmoid=True, loss_weight=1.0),
+    loss_bbox=dict(type="L1Loss", loss_weight=1.0)
+)
 
 optim_wrapper = dict(
     type="OptimWrapper",
@@ -65,7 +81,9 @@ optim_wrapper = dict(
 )
 
 train_cfg = dict(max_epochs=12)
+train_cfg = dict(max_epochs=36)
 
 default_hooks = dict(checkpoint=dict(type="CheckpointHook", interval=1, max_keep_ckpts=1))
+default_hooks = dict(checkpoint=dict(type="CheckpointHook", interval=4, max_keep_ckpts=3))
 
-load_from = "https://download.openmmlab.com/mmdetection/v2.0/cascade_rcnn/cascade_rcnn_r50_fpn_1x_coco/cascade_rcnn_r50_fpn_1x_coco_20200317-0b6a2fb4.pth"
+load_from = "https://download.openmmlab.com/mmdetection/v2.0/cascade_rcnn/cascade_rcnn_r101_fpn_1x_coco/cascade_rcnn_r101_fpn_1x_coco_20200317-12f0bf0d.pth"
