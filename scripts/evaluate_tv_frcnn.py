@@ -18,6 +18,7 @@ import torch
 import torchvision
 from torch.utils.data import DataLoader
 from torchvision.ops import box_convert
+from torchvision.models.detection.rpn import AnchorGenerator
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
@@ -47,11 +48,24 @@ class CocoValDataset(torch.utils.data.Dataset):
 
 
 def make_model(num_classes: int):
-    model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights=None)
+    anchor_generator = AnchorGenerator(
+        sizes=((16,), (32,), (64,), (128,), (256,)),
+        aspect_ratios=(0.2, 0.5, 1.0, 2.0, 5.0),
+    )
+    model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
+        weights=None,
+        weights_backbone="IMAGENET1K_V2",
+        rpn_anchor_generator=anchor_generator,
+        box_detections_per_img=300,
+    )
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = torchvision.models.detection.faster_rcnn.FastRCNNPredictor(
         in_features, num_classes
     )
+    model.rpn.batch_size_per_image = 512
+    model.roi_heads.batch_size_per_image = 1024
+    model.roi_heads.score_thresh = 0.05
+    model.roi_heads.nms_thresh = 0.6
     return model
 
 
@@ -139,4 +153,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
