@@ -9,7 +9,10 @@ _base_ = [
 data_root = "/home/users/jl1430/jl1430/OMR-training/datasets/muscima_coco/"
 img_root = "/home/users/jl1430/muscima-pp/v2.0/data/images/"
 
-classes = tuple([f"class_{i}" for i in range(115)])
+import json
+with open(os.path.join(data_root, "train.json")) as _f:
+    _cats = json.load(_f)["categories"]
+classes = tuple([c["name"] for c in _cats])
 
 train_dataloader = dict(
     batch_size=2,
@@ -47,9 +50,9 @@ model = dict(
     test_cfg=dict(rcnn=dict(score_thr=0.001)),
     roi_head=dict(
         bbox_head=[
-            dict(type="Shared2FCBBoxHead", num_classes=115),
-            dict(type="Shared2FCBBoxHead", num_classes=115),
-            dict(type="Shared2FCBBoxHead", num_classes=115),
+            dict(type="Shared2FCBBoxHead", num_classes=len(classes)),
+            dict(type="Shared2FCBBoxHead", num_classes=len(classes)),
+            dict(type="Shared2FCBBoxHead", num_classes=len(classes)),
         ],
     )
 )
