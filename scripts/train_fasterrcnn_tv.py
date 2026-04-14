@@ -2,8 +2,9 @@
 Minimal TorchVision Faster R-CNN fine-tune on MUSCIMA++ COCO data.
 Uses torchvision COCO-pretrained weights (downloaded from download.pytorch.org).
 Writes checkpoints to /usr/project/xtmp/$USER/omr_runs/tv_frcnn.
-Tunable via env vars: EPOCHS (default 20), LR (0.002), BATCH (1), NUM_WORKERS (1).
-Includes simple horizontal flip augmentation and a StepLR scheduler.
+Tunable via env vars: EPOCHS (default 80), LR (0.0015), BATCH (1), NUM_WORKERS (2).
+Augmentation: color jitter, random resize (short side 800–1200, max 1500), horizontal flip.
+Scheduler: CosineAnnealingLR. Anchors tuned for skinny/tiny symbols.
 
 Paths assume cluster layout; adjust as needed.
 """
@@ -18,6 +19,9 @@ import torchvision
 from torch.utils.data import DataLoader
 from torchvision.transforms import functional as TF
 from PIL import Image, ImageOps
+from torchvision.models.detection.rpn import AnchorGenerator
+from torchvision.transforms.functional import InterpolationMode
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 
 # ---- Paths (cluster defaults) ----
@@ -34,6 +38,36 @@ def load_coco(ann_path):
     for a in coco["annotations"]:
         anns.setdefault(a["image_id"], []).append(a)
     return id2fname, anns, coco["categories"]
+
+
+def jitter_color(img):
+    # Light color jitter; avoids heavy color shifts for sheet music
+    b = 0.1
+    c = 0.1
+    s = 0.1
+    h = 0.02
+    img = TF.adjust_brightness(img, 1 + random.uniform(-b, b))
+    img = TF.adjust_contrast(img, 1 + random.uniform(-c, c))
+    img = TF.adjust_saturation(img, 1 + random.uniform(-s, s))
+    img = TF.adjust_hue(img, random.uniform(-h, h))
+    return img
+
+
+def random_resize(img, boxes, short_min=800, short_max=1200, max_size=1500):
+    """Resize keeping aspect ratio; scales boxes accordingly."""
+    w, h = img.size
+    short_side = min(w, h)
+    target_short = random.randint(short_min, short_max)
+    scale = target_short / short_side
+    # Respect max size
+    if max(w, h) * scale > max_size:
+        scale = max_size / max(w, h)
+    if scale == 1.0:
+        return img, boxes
+    new_w, new_h = int(round(w * scale)), int(round(h * scale))
+    img = TF.resize(img, (new_h, new_w), interpolation=InterpolationMode.BILINEAR)
+    boxes = boxes * scale
+    return img, boxes
 
 
 class CocoDataset(torch.utils.data.Dataset):
@@ -70,13 +104,21 @@ class CocoDataset(torch.utils.data.Dataset):
             "image_id": torch.tensor([img_id]),
         }
 
-        # Simple horizontal flip augmentation for training
-        if self.augment and random.random() < 0.5 and len(target["boxes"]) > 0:
-            img = ImageOps.mirror(img)
-            w = img.width
-            b = target["boxes"].clone()
-            b[:, [0, 2]] = w - b[:, [2, 0]]
-            target["boxes"] = b
+        if self.augment and len(target["boxes"]) > 0:
+            # Color jitter (mild)
+            img = jitter_color(img)
+            # Random resize (scale jitter)
+            if random.random() < 0.9:
+                b = target["boxes"]
+                img, b = random_resize(img, b)
+                target["boxes"] = b
+            # Horizontal flip
+            if random.random() < 0.5:
+                img = ImageOps.mirror(img)
+                w = img.width
+                b = target["boxes"].clone()
+                b[:, [0, 2]] = w - b[:, [2, 0]]
+                target["boxes"] = b
 
         return TF.to_tensor(img), target
 
@@ -90,9 +132,9 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     batch_size = int(os.environ.get("BATCH", "1"))
-    num_workers = int(os.environ.get("NUM_WORKERS", "1"))
-    epochs = int(os.environ.get("EPOCHS", "20"))
-    lr = float(os.environ.get("LR", "0.002"))
+    num_workers = int(os.environ.get("NUM_WORKERS", "2"))
+    epochs = int(os.environ.get("EPOCHS", "80"))
+    lr = float(os.environ.get("LR", "0.0015"))
 
     train_ds = CocoDataset(TRAIN_JSON, IMG_ROOT, augment=True)
     val_ds = CocoDataset(VAL_JSON, IMG_ROOT, augment=False)
@@ -100,8 +142,16 @@ def main():
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate)
 
-    # Load COCO-pretrained detector
-    model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights="DEFAULT")
+    # Load COCO-pretrained detector with tuned anchors
+    anchor_generator = AnchorGenerator(
+        sizes=((16,), (32,), (64,), (128,), (256,)),
+        aspect_ratios=(0.2, 0.5, 1.0, 2.0, 5.0),
+    )
+    model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
+        weights="DEFAULT",
+        rpn_anchor_generator=anchor_generator,
+        box_detections_per_img=300,
+    )
     torch.backends.cudnn.benchmark = False
     # Adjust classifier head for dataset classes
     num_classes = max(max((t["labels"].max().item() if len(t["labels"]) else 0) for _, t in train_ds), 114) + 1
@@ -110,7 +160,13 @@ def main():
     model.to(device)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=max(1, epochs // 2), gamma=0.1)
+    scheduler = CosineAnnealingLR(optimizer, T_max=epochs, eta_min=lr * 0.1)
+
+    # Sampler and head tweaks
+    model.rpn.batch_size_per_image = 512
+    model.roi_heads.batch_size_per_image = 1024
+    model.roi_heads.score_thresh = 0.05
+    model.roi_heads.nms_thresh = 0.6
 
     for epoch in range(epochs):
         model.train()
