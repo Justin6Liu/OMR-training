@@ -42,8 +42,8 @@ def main():
 
     model = init_detector(args.config, args.checkpoint, device="cuda")
     classes = model.dataset_meta["classes"]
-    vis = DetLocalVisualizer(name="vis", classes=classes)
-    vis.set_palette(random_palette(len(classes)))
+    vis = DetLocalVisualizer(name="vis")
+    vis.dataset_meta = {"classes": classes, "palette": random_palette(len(classes))}
 
     coco = json.load(open(args.ann_file))
     images = coco["images"][: args.num]
@@ -68,4 +68,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
