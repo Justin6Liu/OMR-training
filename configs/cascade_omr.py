@@ -54,9 +54,39 @@ model = dict(
     test_cfg=dict(rcnn=dict(score_thr=0.001)),
     roi_head=dict(
         bbox_head=[
-            dict(type="Shared2FCBBoxHead", num_classes=len(classes)),
-            dict(type="Shared2FCBBoxHead", num_classes=len(classes)),
-            dict(type="Shared2FCBBoxHead", num_classes=len(classes)),
+            dict(
+                type="Shared2FCBBoxHead",
+                num_classes=len(classes),
+                loss_cls=dict(
+                    type="FocalLoss",
+                    use_sigmoid=True,
+                    gamma=2.0,
+                    alpha=0.25,
+                    loss_weight=1.0,
+                ),
+            ),
+            dict(
+                type="Shared2FCBBoxHead",
+                num_classes=len(classes),
+                loss_cls=dict(
+                    type="FocalLoss",
+                    use_sigmoid=True,
+                    gamma=2.0,
+                    alpha=0.25,
+                    loss_weight=1.0,
+                ),
+            ),
+            dict(
+                type="Shared2FCBBoxHead",
+                num_classes=len(classes),
+                loss_cls=dict(
+                    type="FocalLoss",
+                    use_sigmoid=True,
+                    gamma=2.0,
+                    alpha=0.25,
+                    loss_weight=1.0,
+                ),
+            ),
         ],
     )
 )
@@ -66,8 +96,8 @@ model["rpn_head"] = dict(
     type="RPNHead",
     anchor_generator=dict(
         type="AnchorGenerator",
-        scales=[8, 16, 32, 64, 128],
-        ratios=[0.5, 1.0, 2.0],
+        scales=[4, 8, 16, 32, 64],
+        ratios=[0.25, 0.5, 1.0, 2.0],
         strides=[4, 8, 16, 32, 64],
     ),
     bbox_coder=dict(type="DeltaXYWHBBoxCoder", target_means=[0., 0., 0., 0.],
@@ -83,6 +113,7 @@ optim_wrapper = dict(
 
 train_cfg = dict(max_epochs=12)
 train_cfg = dict(max_epochs=24)
+train_cfg = dict(max_epochs=36)
 
 default_hooks = dict(checkpoint=dict(type="CheckpointHook", interval=1, max_keep_ckpts=1))
 default_hooks = dict(checkpoint=dict(type="CheckpointHook", interval=4, max_keep_ckpts=3))
