@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 _base_ = [
     "mmdet::cascade_rcnn/cascade-rcnn_r50_fpn_1x_coco.py",
@@ -15,10 +16,8 @@ img_root = os.getenv(
 )
 train_ann_file = os.getenv("TRAIN_ANN_FILE", "train.json")
 val_ann_file = os.getenv("VAL_ANN_FILE", "val.json")
-category_source = os.getenv("CATEGORY_SOURCE_JSON", os.path.join(data_root, train_ann_file))
-
-with open(category_source, "r") as f:
-    _cats = json.load(f)["categories"]
+category_source = Path(os.getenv("CATEGORY_SOURCE_JSON", os.path.join(data_root, train_ann_file)))
+_cats = json.loads(category_source.read_text())["categories"]
 classes = tuple(c["name"] for c in _cats)
 
 train_pipeline = [
@@ -181,4 +180,3 @@ default_hooks = dict(
 train_cfg.setdefault("type", "EpochBasedTrainLoop")
 val_cfg = dict(type="ValLoop")
 test_cfg = dict(type="TestLoop")
-
