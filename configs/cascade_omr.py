@@ -37,9 +37,6 @@ val_dataloader = dict(
 
 test_dataloader = val_dataloader
 
-val_cfg = dict()
-test_cfg = dict()
-
 val_evaluator = dict(type="CocoMetric", ann_file=data_root + "val.json", metric="bbox")
 test_evaluator = val_evaluator
 
@@ -50,7 +47,12 @@ model = dict(
             dict(type="Shared2FCBBoxHead", num_classes=115),
             dict(type="Shared2FCBBoxHead", num_classes=115),
             dict(type="Shared2FCBBoxHead", num_classes=115),
-        ]
+        ],
+        mask_head=[
+            dict(type="FCNMaskHead", num_classes=115),
+            dict(type="FCNMaskHead", num_classes=115),
+            dict(type="FCNMaskHead", num_classes=115),
+        ],
     )
 )
 
@@ -59,7 +61,7 @@ optim_wrapper = dict(
     optimizer=dict(type="SGD", lr=0.002, momentum=0.9, weight_decay=0.0001),
 )
 
-train_cfg = dict(max_epochs=1)
+train_cfg = dict(max_epochs=12)
 
 default_hooks = dict(checkpoint=dict(type="CheckpointHook", interval=1, max_keep_ckpts=1))
 
