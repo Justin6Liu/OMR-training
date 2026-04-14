@@ -21,6 +21,7 @@ mkdir -p "$SCRATCH_BASE" "$WORK_DIR"
 source "$VENV/bin/activate"
 export PYTHONNOUSERSITE=1
 export PYTHONPATH=""
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-max_split_size_mb:128}"
 
 cd "$REPO"
 echo "Config: $CONFIG"
@@ -28,6 +29,7 @@ echo "Train ann: $TRAIN_ANN_FILE"
 echo "Val ann: $VAL_ANN_FILE"
 echo "Work dir: $WORK_DIR"
 echo "Console log: $CONSOLE_LOG"
+echo "PYTORCH_CUDA_ALLOC_CONF: $PYTORCH_CUDA_ALLOC_CONF"
 
 set +e
 mim train mmdet "$CONFIG" \

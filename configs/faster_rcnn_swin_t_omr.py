@@ -35,17 +35,35 @@ def _optional_pretrained_init():
         return None
     return dict(type="Pretrained", checkpoint=checkpoint)
 
+
+def _env_flag(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _env_scale(name, default=(1333, 800)):
+    value = os.getenv(name)
+    if not value:
+        return default
+    w, h = value.split(",")
+    return (int(w), int(h))
+
+
+image_scale = _env_scale("IMG_SCALE", (1333, 800))
+
 train_pipeline = [
     dict(type="LoadImageFromFile"),
     dict(type="LoadAnnotations", with_bbox=True),
-    dict(type="Resize", scale=(1333, 800), keep_ratio=True),
+    dict(type="Resize", scale=image_scale, keep_ratio=True),
     dict(type="RandomFlip", prob=0.5),
     dict(type="PackDetInputs"),
 ]
 
 test_pipeline = [
     dict(type="LoadImageFromFile"),
-    dict(type="Resize", scale=(1333, 800), keep_ratio=True),
+    dict(type="Resize", scale=image_scale, keep_ratio=True),
     dict(type="LoadAnnotations", with_bbox=True),
     dict(type="PackDetInputs"),
 ]
@@ -116,7 +134,7 @@ model = dict(
         drop_path_rate=0.2,
         patch_norm=True,
         out_indices=(0, 1, 2, 3),
-        with_cp=False,
+        with_cp=_env_flag("WITH_CP", False),
         convert_weights=True,
         init_cfg=_optional_pretrained_init(),
     ),
