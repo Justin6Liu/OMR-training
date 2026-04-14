@@ -115,6 +115,9 @@ def parse_args():
     parser.add_argument("--img-root", type=str, default=DEFAULT_IMG_ROOT)
     parser.add_argument("--val-json", type=str, default=DEFAULT_VAL_JSON)
     parser.add_argument("--out-dir", type=str, default=DEFAULT_OUT_DIR, help="Directory containing checkpoints")
+    parser.add_argument("--min-epoch", type=int, default=None, help="Only evaluate checkpoints with epoch number >= this")
+    parser.add_argument("--max-epoch", type=int, default=None, help="Only evaluate checkpoints with epoch number <= this")
+    parser.add_argument("--every", type=int, default=1, help="Stride when scanning checkpoints (e.g., 5 evaluates every 5th)")
     return parser.parse_args()
 
 
@@ -132,8 +135,13 @@ def main():
     else:
         out_dir = Path(args.out_dir)
         checkpoints = sorted(out_dir.glob("epoch_*.pth"))
+        if args.min_epoch is not None:
+            checkpoints = [c for c in checkpoints if int(c.stem.split("_")[1]) >= args.min_epoch]
+        if args.max_epoch is not None:
+            checkpoints = [c for c in checkpoints if int(c.stem.split("_")[1]) <= args.max_epoch]
+        checkpoints = checkpoints[:: max(1, args.every)]
         if not checkpoints:
-            raise FileNotFoundError(f"No checkpoints found in {out_dir}")
+            raise FileNotFoundError(f"No checkpoints matched filters in {out_dir}")
 
     metrics = {}
     for ckpt in checkpoints:
