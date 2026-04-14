@@ -13,8 +13,7 @@ data_root = "/home/users/jl1430/jl1430/OMR-training/datasets/muscima_coco/"
 img_root = "/home/users/jl1430/muscima-pp/v2.0/data/images/"
 
 import json
-with open(os.path.join(data_root, "train.json")) as _f:
-    _cats = json.load(_f)["categories"]
+_cats = json.load(open(os.path.join(data_root, "train.json")))["categories"]
 classes = tuple([c["name"] for c in _cats])
 
 train_dataloader = dict(
