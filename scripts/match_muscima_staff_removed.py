@@ -20,6 +20,7 @@ Example:
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 
 import numpy as np
@@ -40,6 +41,11 @@ def collect_images(root: Path, pattern: str):
     return sorted(root.glob(pattern))
 
 
+def extract_gt_index(path: Path):
+    match = re.search(r"GT_(\d+)\.png$", path.name)
+    return int(match.group(1)) if match else None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--targets", required=True, help="Directory of MUSCIMA++ target images.")
@@ -48,6 +54,8 @@ def main():
     ap.add_argument("--gt-pattern", default="GT_*.png")
     ap.add_argument("--resize", default="256,256", help="Resize used for matching, e.g. 256,256")
     ap.add_argument("--topk", type=int, default=20, help="How many candidate matches to score per target output preview.")
+    ap.add_argument("--gt-min-index", type=int, help="Optional minimum GT index to keep, e.g. 1000.")
+    ap.add_argument("--gt-max-index", type=int, help="Optional maximum GT index to keep, e.g. 2000.")
     ap.add_argument("--out-json", required=True, help="Where to save the final mapping JSON.")
     ap.add_argument("--out-dir", help="Optional output dir to populate with matched staff-removed images.")
     ap.add_argument(
@@ -61,6 +69,19 @@ def main():
     resize = tuple(int(x) for x in args.resize.split(","))
     targets = collect_images(Path(args.targets), args.target_pattern)
     gt_images = collect_images(Path(args.gt_root), args.gt_pattern)
+
+    if args.gt_min_index is not None or args.gt_max_index is not None:
+        filtered = []
+        for p in gt_images:
+            idx = extract_gt_index(p)
+            if idx is None:
+                continue
+            if args.gt_min_index is not None and idx < args.gt_min_index:
+                continue
+            if args.gt_max_index is not None and idx > args.gt_max_index:
+                continue
+            filtered.append(p)
+        gt_images = filtered
 
     if not targets:
         raise FileNotFoundError(f"No target images found in {args.targets}")
