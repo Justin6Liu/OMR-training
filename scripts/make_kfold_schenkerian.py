@@ -21,9 +21,12 @@ After generation, train a fold with:
 Notes:
 - Images are copied/converted to PNG; labels to YOLO txt.
 - Class list is derived from the 5 MuNG files and shared across folds.
+- Optional class remapping can collapse raw MuNG classes into the label space
+  used by an existing checkpoint.
 """
 
 import argparse
+import json
 import shutil
 from pathlib import Path
 from typing import List, Dict, Tuple
@@ -61,6 +64,26 @@ def parse_mung(xml_path: Path) -> List[Dict]:
     return nodes
 
 
+def load_class_map(path: str | None) -> Dict[str, str]:
+    if not path:
+        return {}
+    return json.loads(Path(path).read_text())
+
+
+def remap_boxes(boxes: List[Dict], class_map: Dict[str, str]) -> List[Dict]:
+    if not class_map:
+        return boxes
+    remapped = []
+    for b in boxes:
+        cls = class_map.get(b["class"], b["class"])
+        if cls is None:
+            continue
+        updated = dict(b)
+        updated["class"] = cls
+        remapped.append(updated)
+    return remapped
+
+
 def write_yolo_label(out_txt: Path, boxes: List[Dict], class_to_id: Dict[str, int], img_w: int, img_h: int):
     with out_txt.open("w") as f:
         for b in boxes:
@@ -88,11 +111,16 @@ def main():
     ap.add_argument("--data-root", required=True, help="Path to 'Complete Annotations' directory")
     ap.add_argument("--out-dir", default="outputs/schenkerian_kfold", help="Output root for folds")
     ap.add_argument("--k", type=int, default=5, help="Number of folds (<= number of docs)")
+    ap.add_argument(
+        "--class-map-json",
+        help="Optional JSON mapping raw MuNG class names to checkpoint label names.",
+    )
     args = ap.parse_args()
 
     data_root = Path(args.data_root)
     out_root = Path(args.out_dir)
     out_root.mkdir(parents=True, exist_ok=True)
+    class_map = load_class_map(args.class_map_json)
 
     docs = find_docs(data_root)
     if len(docs) < args.k:
@@ -101,7 +129,7 @@ def main():
     # Collect all classes
     class_names = {}
     for _, xml_path, _ in docs:
-        for b in parse_mung(xml_path):
+        for b in remap_boxes(parse_mung(xml_path), class_map):
             class_names[b["class"]] = True
     class_list = sorted(class_names.keys())
     class_to_id = {c: i for i, c in enumerate(class_list)}
@@ -116,7 +144,7 @@ def main():
         for doc_idx, (doc_name, xml_path, img_path) in enumerate(docs):
             split = "val" if doc_idx % args.k == fold_idx else "train"
             # Load boxes
-            boxes = parse_mung(xml_path)
+            boxes = remap_boxes(parse_mung(xml_path), class_map)
             # Copy/convert image to PNG
             with Image.open(img_path) as img:
                 img = img.convert("RGB")
@@ -132,8 +160,9 @@ def main():
         print(f"Fold {fold_idx}: train/val prepared at {fold_dir}")
 
     print(f"Done. Classes ({len(class_list)}): {class_list}")
+    if class_map:
+        print(f"Applied class map from {args.class_map_json}")
 
 
 if __name__ == "__main__":
     main()
-

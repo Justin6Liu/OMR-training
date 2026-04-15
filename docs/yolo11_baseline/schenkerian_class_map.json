@@ -1,0 +1,10 @@
+{
+  "stem": "stemStructural",
+  "noteheadFull": "noteheadBlack",
+  "augmentationDot": "noteheadBlack",
+  "slur": "slurStructuralUp",
+  "tie": "slurStructuralUp",
+  "beam": "beamStructural",
+  "flag8thDown": "flagStructuralDown",
+  "flag8thUp": "flagStructuralUp"
+}
