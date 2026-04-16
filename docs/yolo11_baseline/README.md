@@ -15,7 +15,9 @@ There are two valid starting points:
 ## Files
 
 - [train_yolo11_cluster.sh](/Users/justinliu/Documents/GitHub/OMR-training/docs/yolo11_baseline/train_yolo11_cluster.sh)
+- [train_yolo11_staff_removed_cluster.sh](/Users/justinliu/Documents/GitHub/OMR-training/docs/yolo11_baseline/train_yolo11_staff_removed_cluster.sh)
 - [convert_coco_to_yolo.py](/Users/justinliu/Documents/GitHub/OMR-training/scripts/convert_coco_to_yolo.py)
+- [prepare_staff_removed_yolo_dataset.py](/Users/justinliu/Documents/GitHub/OMR-training/scripts/prepare_staff_removed_yolo_dataset.py)
 
 ## 1. Prepare a YOLO-format dataset
 
@@ -118,6 +120,53 @@ yolo detect val \
   imgsz=960 \
   device=0
 ```
+
+## 6. Fine-tune on the cleaned staff-removed MUSCIMA++ subset
+
+If you want to adapt a detector to the reconstructed 94-image staff-removed
+subset, the repo now includes a dataset builder plus a dedicated launcher.
+
+The dataset builder:
+
+- reads your cleaned match JSON
+- maps each original MUSCIMA++ page back to its COCO annotations
+- replaces the image pixels with the paired staff-removed image
+- writes a deterministic YOLO train/val split plus `manifest.json`
+
+Prepare the dataset directly:
+
+```bash
+cd /home/users/jl1430/jl1430/OMR-training
+python scripts/prepare_staff_removed_yolo_dataset.py \
+  --match-json outputs/muscima_gt_match_filtered_clean.json \
+  --coco-jsons datasets/muscima_coco/train.json datasets/muscima_coco/val.json \
+  --out-dir outputs/muscima_staff_removed_yolo \
+  --val-ratio 0.2 \
+  --seed 42
+```
+
+Or use the end-to-end launcher to prepare the subset and fine-tune from your
+teammate's checkpoint in one step:
+
+```bash
+cd /home/users/jl1430/jl1430/OMR-training
+MATCH_JSON=/path/to/muscima_gt_match_filtered_clean.json \
+MODEL=/home/users/jl1430/Documents/GitHub/Schenkerian_OMR/trained_models/yolo11l_muscima.pt \
+RUN_NAME=yolo11l_staff_removed_adapt \
+EPOCHS=40 \
+IMGSZ=960 \
+BATCH=4 \
+LR0=0.001 \
+bash docs/yolo11_baseline/train_yolo11_staff_removed_cluster.sh
+```
+
+Recommended adaptation settings for this subset:
+
+- start from an existing MUSCIMA++ checkpoint
+- keep the learning rate modest, e.g. `LR0=0.001`
+- train briefly, e.g. `EPOCHS=30` to `50`
+- use `IMGSZ=960` if memory allows, else `640`
+- treat the held-out split as a practical adaptation check, not a paper-style benchmark
 
 ## Which route should you try first?
 
